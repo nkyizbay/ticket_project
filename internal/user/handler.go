@@ -1,0 +1,146 @@
+package user
+
+import (
+	"errors"
+	"net/http"
+	"time"
+
+	"github.com/golang-jwt/jwt/v4"
+	"github.com/labstack/echo/v4"
+	"github.com/nkyizbay/ticket_store/internal/auth"
+)
+
+var (
+	WarnWhenEmailOrUsernameIsNotUnique = "This email or username has already been registered"
+
+	WarnInternalServerError = "an error occurred please try again later"
+	WarnEmptyUserName       = "Username cannot be empty"
+	WarnInvalidUserType     = "User type is invalid"
+	WarnInvalidAuthType     = "Auth type is invalid"
+	WarnInvalidEmail        = "Please enter valid email address"
+	WarnPasswordLength      = "Password should be between 5 and 12 characters"
+
+	WarnNonValidCredentials  = "Please enter valid username or password"
+	WarnWhenUsernameNotFound = "Invalid username, please enter valid user name"
+	WarnEmailCouldNotSent    = "Email could not be sent"
+	SuccessLoginMessage      = "Congratulations, you have successfully logged into the system."
+)
+
+type handler struct {
+	userService  Service
+	JwtSecretKey string
+}
+
+func NewHandler(e *echo.Echo, userService Service, jwtSecretKey string) *handler {
+	h := handler{
+		userService:  userService,
+		JwtSecretKey: jwtSecretKey,
+	}
+
+	e.POST("/register", h.Register)
+	e.POST("/login", h.Login)
+	e.GET("/logout", h.Logout)
+
+	return &h
+}
+
+func (h *handler) Register(c echo.Context) error {
+	user := new(User)
+
+	if err := c.Bind(&user); err != nil {
+		return c.String(http.StatusBadRequest, err.Error())
+	}
+
+	if user.IsNameEmpty() {
+		return c.String(http.StatusBadRequest, WarnEmptyUserName)
+	}
+
+	if user.IsUserTypeInvalid() {
+		return c.String(http.StatusBadRequest, WarnInvalidUserType)
+	}
+
+	if user.IsAuthTypeInvalid() {
+		return c.String(http.StatusBadRequest, WarnInvalidAuthType)
+	}
+
+	if user.IsEmailInvalid() {
+		return c.String(http.StatusBadRequest, WarnInvalidEmail)
+	}
+
+	if user.IsPasswordInvalid() {
+		return c.String(http.StatusBadRequest, WarnPasswordLength)
+	}
+
+	password, err := user.HashPassword()
+	if err != nil {
+		return c.String(http.StatusBadRequest, err.Error())
+	}
+	user.Password = password
+
+	requestCtx := c.Request().Context()
+
+	err = h.userService.Register(requestCtx, user)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrDuplicatedValue):
+			return c.String(http.StatusBadRequest, WarnWhenEmailOrUsernameIsNotUnique)
+		default:
+			return c.String(http.StatusInternalServerError, WarnInternalServerError)
+		}
+	}
+
+	return c.NoContent(http.StatusCreated)
+}
+
+func (h *handler) Login(c echo.Context) error {
+	var credentials auth.Credentials
+	if err := c.Bind(&credentials); err != nil {
+		return c.String(http.StatusBadRequest, WarnNonValidCredentials)
+	}
+
+	user, err := h.userService.Login(c.Request().Context(), credentials)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrUsernameNotFound):
+			return c.String(http.StatusNotFound, WarnWhenUsernameNotFound)
+		case errors.Is(err, ErrUsernameOrPasswordInvalid):
+			return c.String(http.StatusUnauthorized, WarnNonValidCredentials)
+		default:
+			return c.String(http.StatusInternalServerError, WarnInternalServerError)
+		}
+	}
+
+	expirationTime := &jwt.NumericDate{Time: time.Now().Add(time.Hour)}
+	claims := auth.Claims{
+		Username: user.UserName,
+		UserID:   user.ID,
+		UserType: user.UserType,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: expirationTime,
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+	tokenString, err := token.SignedString([]byte(h.JwtSecretKey))
+	if err != nil {
+		return c.NoContent(http.StatusInternalServerError)
+	}
+
+	cookie := new(http.Cookie)
+	cookie.Name = "token"
+	cookie.Value = tokenString
+	cookie.Expires = expirationTime.Time
+	c.SetCookie(cookie)
+
+	return c.String(http.StatusOK, SuccessLoginMessage)
+}
+
+func (h *handler) Logout(c echo.Context) error {
+	cookie := new(http.Cookie)
+	cookie.Name = "token"
+	cookie.Value = ""
+	cookie.MaxAge = 0
+	c.SetCookie(cookie)
+	return c.String(http.StatusOK, "You have successfully logout")
+}
