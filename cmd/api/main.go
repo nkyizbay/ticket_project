@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/labstack/echo/v4"
+	"github.com/nkyizbay/ticket_store/internal/trip"
 	"github.com/nkyizbay/ticket_store/internal/user"
 	"github.com/nkyizbay/ticket_store/pkg/database"
 	"github.com/spf13/viper"
@@ -33,6 +34,11 @@ func main() {
 	userRepository := user.NewRepository(connectionPool)
 	userService := user.NewUserService(userRepository)
 	user.NewHandler(e, userService, jwtSecretKey)
+
+	// TRİP
+	tripRepo := trip.NewTripRepository(connectionPool)
+	tripService := trip.NewTripService(tripRepo)
+	trip.Handler(e, tripService)
 
 	e.Logger.Fatal(e.Start(":8080"))
 }

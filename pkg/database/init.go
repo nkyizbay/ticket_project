@@ -3,6 +3,7 @@ package database
 import (
 	"fmt"
 
+	"github.com/nkyizbay/ticket_store/internal/trip"
 	"github.com/nkyizbay/ticket_store/internal/user"
 
 	"github.com/spf13/viper"
@@ -31,7 +32,7 @@ func Setup() (*gorm.DB, error) {
 }
 
 func Migrate() {
-	if err := db.AutoMigrate(&user.User{}); err != nil {
+	if err := db.AutoMigrate(&user.User{}, &trip.Trip{}); err != nil {
 		panic(err)
 	}
 }
