@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/labstack/echo/v4"
+	"github.com/nkyizbay/ticket_store/internal/auth"
 	"github.com/nkyizbay/ticket_store/internal/trip"
 	"github.com/nkyizbay/ticket_store/internal/user"
 	"github.com/nkyizbay/ticket_store/pkg/database"
@@ -13,6 +14,7 @@ import (
 
 func main() {
 	e := echo.New()
+	e.Use(auth.TokenMiddleware)
 
 	viper.SetConfigFile(".env")
 	if err := viper.ReadInConfig(); err != nil {
