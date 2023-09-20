@@ -16,3 +16,11 @@ type Claims struct {
 	UserID   uint
 	jwt.RegisteredClaims
 }
+
+func (c *Claims) IsAdmin() bool {
+	return c.UserType == Admin
+}
+
+func (c *Claims) IsNotAdmin() bool {
+	return !c.IsAdmin()
+}

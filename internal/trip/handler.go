@@ -6,6 +6,7 @@ import (
 	"strconv"
 
 	"github.com/labstack/echo/v4"
+	"github.com/nkyizbay/ticket_store/internal/auth"
 )
 
 const (
@@ -30,8 +31,8 @@ func Handler(e *echo.Echo, tripService Service) *handler {
 		tripService: tripService,
 	}
 
-	e.POST("/trips", h.CreateTrip)
-	e.DELETE("/trips/:id", h.CancelTrip)
+	e.POST("/trips", h.CreateTrip, auth.AdminMiddleware)
+	e.DELETE("/trips/:id", h.CancelTrip, auth.AdminMiddleware)
 
 	return &h
 }

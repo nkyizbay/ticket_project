@@ -50,3 +50,15 @@ func TokenMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		return next(c)
 	}
 }
+
+func AdminMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		claim, _ := c.Get("claim").(Claims)
+
+		if claim.IsNotAdmin() {
+			return c.String(http.StatusForbidden, "You have no authority")
+		}
+
+		return next(c)
+	}
+}
