@@ -3,6 +3,8 @@ package trip
 import (
 	"context"
 	"errors"
+
+	"github.com/nkyizbay/ticket_store/internal/user"
 )
 
 var (
@@ -13,6 +15,7 @@ var (
 type Service interface {
 	CreateTrip(ctx context.Context, trip *Trip) error
 	CancelTrip(ctx context.Context, id int) error
+	FilterTrips(ctx context.Context, trip *Filter) ([]Trip, error)
 }
 
 type defaultService struct {
@@ -44,4 +47,17 @@ func (s *defaultService) CancelTrip(ctx context.Context, id int) error {
 	}
 
 	return nil
+}
+
+func (s *defaultService) FilterTrips(ctx context.Context, filter *Filter) ([]Trip, error) {
+	trips, err := s.tripRepo.FindByFilter(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(trips) == 0 {
+		return nil, user.ErrThereIsNoTrip
+	}
+
+	return trips, err
 }

@@ -17,6 +17,14 @@ const (
 	DefaultCapacity  = 0
 )
 
+type Filter struct {
+	TripID  int       `json:"trip_id"`
+	From    string    `json:"from"`
+	To      string    `json:"to"`
+	Vehicle Vehicle   `json:"vehicle"`
+	Date    time.Time `json:"date"`
+}
+
 type Trip struct {
 	ID              int       `gorm:"primaryKey" json:"id"`
 	From            string    `gorm:"not null;index:,unique,composite:idx_member" json:"from"`

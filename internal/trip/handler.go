@@ -7,6 +7,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/nkyizbay/ticket_store/internal/auth"
+	"github.com/nkyizbay/ticket_store/internal/user"
 )
 
 const (
@@ -33,6 +34,7 @@ func Handler(e *echo.Echo, tripService Service) *handler {
 
 	e.POST("/trips", h.CreateTrip, auth.AdminMiddleware)
 	e.DELETE("/trips/:id", h.CancelTrip, auth.AdminMiddleware)
+	e.GET("/trips", h.FilterTrips)
 
 	return &h
 }
@@ -86,4 +88,21 @@ func (t *handler) CancelTrip(c echo.Context) error {
 	}
 
 	return c.NoContent(http.StatusNoContent)
+}
+
+func (t *handler) FilterTrips(c echo.Context) error {
+	filter := Filter{}
+	if err := c.Bind(&filter); err != nil {
+		return c.String(http.StatusBadRequest, err.Error())
+	}
+
+	trips, err := t.tripService.FilterTrips(c.Request().Context(), &filter)
+	if err != nil {
+		if errors.Is(err, user.ErrThereIsNoTrip) {
+			return c.String(http.StatusBadRequest, WarnNoTripMeetConditions)
+		}
+		return c.String(http.StatusInternalServerError, user.WarnInternalServerError)
+	}
+
+	return c.JSON(http.StatusOK, trips)
 }

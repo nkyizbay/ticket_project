@@ -18,6 +18,7 @@ var (
 type Repository interface {
 	Create(ctx context.Context, trip *Trip) error
 	Delete(ctx context.Context, id int) error
+	FindByFilter(ctx context.Context, trip *Filter) ([]Trip, error)
 }
 
 type defaultRepository struct {
@@ -59,4 +60,24 @@ func (t *defaultRepository) Delete(ctx context.Context, id int) error {
 	}
 
 	return nil
+}
+
+func (t *defaultRepository) FindByFilter(ctx context.Context, filter *Filter) ([]Trip, error) {
+	timeoutCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	var trips []Trip
+
+	if err := t.database.WithContext(timeoutCtx).Where(&Trip{
+		ID:      filter.TripID,
+		From:    filter.From,
+		To:      filter.To,
+		Vehicle: filter.Vehicle,
+		Date:    filter.Date,
+	}).Find(&trips).Error; err != nil {
+		log.Error(err)
+		return nil, err
+	}
+
+	return trips, nil
 }
