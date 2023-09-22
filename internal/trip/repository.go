@@ -19,6 +19,8 @@ type Repository interface {
 	Create(ctx context.Context, trip *Trip) error
 	Delete(ctx context.Context, id int) error
 	FindByFilter(ctx context.Context, trip *Filter) ([]Trip, error)
+	FindByTripID(ctx context.Context, tripID int) (*Trip, error)
+	UpdateAvailableSeat(ctx context.Context, tripID int, ticketNum int) error
 }
 
 type defaultRepository struct {
@@ -80,4 +82,33 @@ func (t *defaultRepository) FindByFilter(ctx context.Context, filter *Filter) ([
 	}
 
 	return trips, nil
+}
+
+func (t *defaultRepository) FindByTripID(ctx context.Context, tripID int) (*Trip, error) {
+	timeoutCtx, cancel := context.WithTimeout(ctx, 100*time.Second)
+	defer cancel()
+
+	var trip Trip
+
+	if err := t.database.WithContext(timeoutCtx).First(&trip, tripID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrTripNotFound
+		}
+		log.Error(err)
+		return nil, err
+	}
+
+	return &trip, nil
+}
+
+func (t *defaultRepository) UpdateAvailableSeat(ctx context.Context, tripID int, ticketNum int) error {
+	timeoutCtx, cancel := context.WithTimeout(ctx, 100*time.Second)
+	defer cancel()
+
+	if err := t.database.WithContext(timeoutCtx).Model(&Trip{}).Where("id = ?", tripID).Update("available_seat", gorm.Expr("available_seat - ?", ticketNum)); err.Error != nil {
+		log.Error(err.Error)
+		return err.Error
+	}
+
+	return nil
 }

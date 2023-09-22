@@ -24,3 +24,11 @@ func (c *Claims) IsAdmin() bool {
 func (c *Claims) IsNotAdmin() bool {
 	return !c.IsAdmin()
 }
+
+func (c *Claims) IsIndividualUser() bool {
+	return c.UserType == IndividualUser
+}
+
+func (c *Claims) IsCorporatedUser() bool {
+	return c.UserType == CorporateUser
+}

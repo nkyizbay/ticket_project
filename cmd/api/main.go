@@ -6,6 +6,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/nkyizbay/ticket_store/internal/auth"
+	"github.com/nkyizbay/ticket_store/internal/ticket"
 	"github.com/nkyizbay/ticket_store/internal/trip"
 	"github.com/nkyizbay/ticket_store/internal/user"
 	"github.com/nkyizbay/ticket_store/pkg/database"
@@ -41,6 +42,11 @@ func main() {
 	tripRepo := trip.NewTripRepository(connectionPool)
 	tripService := trip.NewTripService(tripRepo)
 	trip.Handler(e, tripService)
+
+	// TICKET
+	ticketRepo := ticket.NewTicketRepository(connectionPool)
+	service := ticket.NewService(ticketRepo, tripRepo)
+	ticket.NewHandler(e, service)
 
 	e.Logger.Fatal(e.Start(":8080"))
 }

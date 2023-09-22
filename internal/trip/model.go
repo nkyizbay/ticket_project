@@ -94,3 +94,10 @@ func IsInvalidID(id int) bool {
 func IsValidID(id int) bool {
 	return id > 0
 }
+
+func (t *Trip) CheckAvailableSeat(numberOfTickets int) bool {
+	if t.AvailableSeat == 0 || t.AvailableSeat < uint(numberOfTickets) {
+		return false
+	}
+	return true
+}
