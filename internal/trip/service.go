@@ -16,6 +16,7 @@ type Service interface {
 	CreateTrip(ctx context.Context, trip *Trip) error
 	CancelTrip(ctx context.Context, id int) error
 	FilterTrips(ctx context.Context, trip *Filter) ([]Trip, error)
+	GetSoldTicketNumber(ctx context.Context, tripID int) (int, error)
 }
 
 type defaultService struct {
@@ -60,4 +61,13 @@ func (s *defaultService) FilterTrips(ctx context.Context, filter *Filter) ([]Tri
 	}
 
 	return trips, err
+}
+
+func (s *defaultService) GetSoldTicketNumber(ctx context.Context, tripID int) (int, error) {
+	number, err := s.tripRepo.GetSoldTicketNumber(ctx, tripID)
+	if err != nil {
+		return -1, err
+	}
+
+	return number, nil
 }

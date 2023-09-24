@@ -21,6 +21,7 @@ type Repository interface {
 	FindByFilter(ctx context.Context, trip *Filter) ([]Trip, error)
 	FindByTripID(ctx context.Context, tripID int) (*Trip, error)
 	UpdateAvailableSeat(ctx context.Context, tripID int, ticketNum int) error
+	GetSoldTicketNumber(ctx context.Context, tripID int) (int, error)
 }
 
 type defaultRepository struct {
@@ -111,4 +112,17 @@ func (t *defaultRepository) UpdateAvailableSeat(ctx context.Context, tripID int,
 	}
 
 	return nil
+}
+
+func (t *defaultRepository) GetSoldTicketNumber(ctx context.Context, tripID int) (int, error) {
+	timeoutCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	var soldTicketNumber int64
+	if err := t.database.WithContext(timeoutCtx).Model(&Trip{}).Joins("inner join tickets on trips.id = tickets.trip_id").Where("trips.id = ?", tripID).Count(&soldTicketNumber); err.Error != nil {
+		log.Error(err.Error)
+		return -1, err.Error
+	}
+
+	return int(soldTicketNumber), nil
 }
