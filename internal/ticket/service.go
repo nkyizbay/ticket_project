@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/nkyizbay/ticket_store/internal/auth"
+	"github.com/nkyizbay/ticket_store/internal/notification"
 	"github.com/nkyizbay/ticket_store/internal/trip"
 )
 
@@ -31,12 +32,13 @@ type Service interface {
 }
 
 type defaultService struct {
-	ticketRepo Repository
-	tripRepo   trip.Repository
+	ticketRepo          Repository
+	notificationService notification.Service
+	tripRepo            trip.Repository
 }
 
-func NewService(ticketRepo Repository, tripRepo trip.Repository) Service {
-	return &defaultService{ticketRepo: ticketRepo, tripRepo: tripRepo}
+func NewService(ticketRepo Repository, notificationService notification.Service, tripRepo trip.Repository) Service {
+	return &defaultService{ticketRepo: ticketRepo, notificationService: notificationService, tripRepo: tripRepo}
 }
 
 func (s *defaultService) Purchase(ctx context.Context, tickets []Ticket, claims auth.Claims) error {
@@ -52,8 +54,15 @@ func (s *defaultService) Purchase(ctx context.Context, tickets []Ticket, claims 
 		return err
 	}
 
+	// slice of parameters of message
+	params := make([]notification.Param, 0, len(tickets))
+	// slice of strings
+	passengersNames := make([]string, 0, len(tickets))
+
 	for i := range tickets {
 		ticket := tickets[i]
+
+		passengersNames = append(passengersNames, ticket.FullName)
 
 		requestedTrip, err := s.tripRepo.FindByTripID(ctx, ticket.TripID)
 		if err != nil {
@@ -62,6 +71,19 @@ func (s *defaultService) Purchase(ctx context.Context, tickets []Ticket, claims 
 			}
 			return err
 		}
+
+		params = append(params, notification.Param{
+			Channel: notification.SMS,
+			To:      ticket.Phone,
+			From:    "X Ticket Company",
+			Title:   "Purchase Detail",
+			Description: fmt.Sprintf(`Congrats! Your transaction is successful. Here your ticket Details:
+FromTo: %s-%s
+Date: %s
+Vehicle: %s
+Passengers:`, requestedTrip.From, requestedTrip.To, requestedTrip.Date, requestedTrip.Vehicle),
+			LogMsg: fmt.Sprintf("The %s who has %d id purchased ticket/s", claims.Username, claims.UserID),
+		})
 
 		purchasedTicket := Ticket{
 			TripID: requestedTrip.ID,
@@ -83,6 +105,18 @@ func (s *defaultService) Purchase(ctx context.Context, tickets []Ticket, claims 
 		}
 
 		if err = s.ticketRepo.CreateTicketWithDetails(ctx, &purchasedTicket); err != nil {
+			return err
+		}
+	}
+
+	for i := range params {
+		for k := range passengersNames {
+			params[i].Description += fmt.Sprintf("%s\n", passengersNames[k])
+		}
+	}
+
+	for i := 0; i < len(params); i++ {
+		if err := s.notificationService.Send(ctx, params[i]); err != nil {
 			return err
 		}
 	}

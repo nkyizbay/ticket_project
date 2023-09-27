@@ -2,12 +2,14 @@ package user
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
 	"github.com/labstack/echo/v4"
 	"github.com/nkyizbay/ticket_store/internal/auth"
+	"github.com/nkyizbay/ticket_store/internal/notification"
 )
 
 var (
@@ -27,14 +29,16 @@ var (
 )
 
 type handler struct {
-	userService  Service
-	JwtSecretKey string
+	userService         Service
+	notificationService notification.Service
+	JwtSecretKey        string
 }
 
-func NewHandler(e *echo.Echo, userService Service, jwtSecretKey string) *handler {
+func NewHandler(e *echo.Echo, userService Service, notificationService notification.Service, jwtSecretKey string) *handler {
 	h := handler{
-		userService:  userService,
-		JwtSecretKey: jwtSecretKey,
+		userService:         userService,
+		notificationService: notificationService,
+		JwtSecretKey:        jwtSecretKey,
 	}
 
 	e.POST("/register", h.Register)
@@ -87,6 +91,19 @@ func (h *handler) Register(c echo.Context) error {
 		default:
 			return c.String(http.StatusInternalServerError, WarnInternalServerError)
 		}
+	}
+
+	param := notification.Param{
+		Channel:     notification.Email,
+		To:          user.Email,
+		From:        "ticket@company.com",
+		Title:       "Welcome Mail",
+		Description: fmt.Sprintf("Dear %s, welcome to our platform", user.UserName),
+		LogMsg:      fmt.Sprintf("A welcome e-mail has been sent to %s, who has just registered.", user.Email),
+	}
+
+	if err = h.notificationService.Send(requestCtx, param); err != nil {
+		return c.String(http.StatusInternalServerError, WarnEmailCouldNotSent)
 	}
 
 	return c.NoContent(http.StatusCreated)

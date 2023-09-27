@@ -6,6 +6,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/nkyizbay/ticket_store/internal/auth"
+	"github.com/nkyizbay/ticket_store/internal/notification"
 	"github.com/nkyizbay/ticket_store/internal/ticket"
 	"github.com/nkyizbay/ticket_store/internal/trip"
 	"github.com/nkyizbay/ticket_store/internal/user"
@@ -33,10 +34,14 @@ func main() {
 
 	database.Migrate()
 
+	// NOTIFICATION
+	notificationRepository := notification.NewNotificationRepository(connectionPool)
+	notificationService := notification.NewService(notificationRepository)
+
 	// USER
 	userRepository := user.NewRepository(connectionPool)
 	userService := user.NewUserService(userRepository)
-	user.NewHandler(e, userService, jwtSecretKey)
+	user.NewHandler(e, userService, notificationService, jwtSecretKey)
 
 	// TRİP
 	tripRepo := trip.NewTripRepository(connectionPool)
@@ -45,7 +50,7 @@ func main() {
 
 	// TICKET
 	ticketRepo := ticket.NewTicketRepository(connectionPool)
-	service := ticket.NewService(ticketRepo, tripRepo)
+	service := ticket.NewService(ticketRepo, notificationService, tripRepo)
 	ticket.NewHandler(e, service)
 
 	e.Logger.Fatal(e.Start(":8080"))
